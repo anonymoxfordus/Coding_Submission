@@ -1,0 +1,178 @@
+### Introduction
+
+```{r Data Exploration, echo=TRUE}
+
+# Install Packages 
+#install.packages(c("ggplot2", "palmerpenguins", "dplyr","ragg","tidyr"))
+
+#Load Raw Input Data
+library(palmerpenguins)
+
+#file.create(c("figures")) #run if permissions are granted to create files - otherwise create a "figures" file.
+InputData <- penguins_raw
+head(InputData) 
+
+```
+
+The above code is designed to:
+
+-   set up filesa so that it can be used later in the code so figures can be added to them;
+
+-   re-name the penguins_raw data set so that it is clearer that it is the input data
+
+-   display the top of the input data data frame, so that variables within the data frame can be seen.
+
+### Hypothesis
+
+```{r Explanatory Plot, echo=TRUE}
+
+
+#Clean Raw Data
+library(dplyr)
+library(tidyr)
+
+CleanData <- InputData %>%
+  select(all_of(c("Species","Body Mass (g)","Sex"))) %>%
+  na.omit(InputData) %>%
+  mutate(Species = replace(Species, Species == "Adelie Penguin (Pygoscelis adeliae)","Adelie penguin (Pygoscelis adeliae)")) %>%
+  separate(col='Species', into=c('SpeciesCommon', 'SpeciesBinomial'), sep='penguin',convert = TRUE)
+head(CleanData)
+
+#Plots ExplanatoryFigure  
+library(ggplot2)
+
+ExplanatoryFigure <- ggplot(CleanData, aes(x=SpeciesCommon, y=`Body Mass (g)`, fill=Sex)) +
+  geom_violin() +
+  labs(x = "Species")
+
+
+#Saves ExplanatoryFigure as png
+library(ragg)
+
+agg_png("figures/ExplanatoryFigure.png", 
+        width = 40, 
+        height = 30, 
+        units = "cm", 
+        res = 600, 
+        scaling = 3.6)
+ExplanatoryFigure
+dev.off()
+ExplanatoryFigure
+
+```
+
+I chose to look more closely on the effects of sex and species on the body mass of penguins after looking at the input data set.
+
+The above code:
+
+-   removes all columns that are irrelevant to my aimed analysis (omitting all data bar data on species, sex, and body mass) so that the data set can be called on without having to load irrelevant information
+
+-   removes N/A data so that data being used for this analysis is complete
+
+-   plots an explanatory figure so initial trends can be observed regarding the relationship between sex and species on body mass.
+
+-   saves this explanatory plot to the figures folder previously created, so that this output can be stored and exported if needed.
+
+### Statistical Methods
+
+```{r Statistics, echo=TRUE}
+
+#T-test to compare signifcance between Sex within each Species 
+t_testResults <- CleanData %>%
+  group_by(SpeciesBinomial) %>%
+  summarise(ResultSummary = list(t.test(`Body Mass (g)` ~ Sex)))
+mutate(t_testResults, p.value = c(t_testResults$ResultSummary[[1]]$p.value, t_testResults$ResultSummary[[2]]$p.value, t_testResults$ResultSummary[[3]]$p.value))
+
+model <- lm(`Body Mass (g)` ~ Sex * SpeciesBinomial, data = CleanData)
+anova_table <- anova(model)
+anova_table
+anova_p_value <- anova_table[["Pr(>F)"]][3]
+anova_F_stat <-  anova_table[["F value"]][3] 
+
+```
+
+To analyse if the difference between body mass between sexes within each species is significant, and to analyse if body mass between each sex across the three species is significant, t-tests and an anova is carried out.
+
+The t-test compares the means of body mass between sexes for each of the spices all reporting a statistically significant result as p \<0.05.
+
+The anova compares the mean body mass across both sex and species and shows a significant difference as p \<0.01), and that sex and species likely has compounding effects on body mass as F=8.76 (3sf).
+
+The above code:
+
+-   carries out t-tests comparing means between sexes for each species and saves the t-test results (a list) as a data frame, t_testResults. This is done to organise the data in one place rather than having three separate lists
+
+-   extract the p-values from the lists stored in the t_testResults data frame and adds it as a new column in the t_testResults data frame. This is so it can be called upon easier, as it is no longer nested within a list found in the data frame.
+
+-   models the effects of sex and species on body mass and their possible compounding effects.
+
+-   runs an analysis of variance (anova) of this model and saves this in a data frame so that data can be called open lateer
+
+-   extracts the p-value and F-statistic from this data and saves it as separate variable so that these variables can be called upon later.
+
+### Results & Discussion
+
+```{r Plotting Results, echo=TRUE}
+
+# Plots reuslts figure adding data from t-test aswell as making the explanatory figure readable for an audience. 
+library(grid)
+
+ResultsFigure <- ExplanatoryFigure +
+  stat_summary(fun = mean, geom = "point", shape = 20, size = 3) +
+  stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.1) +
+  annotate("text", x = 1, y = 6500,
+           label = ifelse(t_testResults$p.value[1] < 0.05, "*", ""),
+           color = "red",size = 7) +
+  annotate("text", x = 2, y = 6500,
+           label = ifelse(t_testResults$p.value[2] < 0.05, "*", ""),
+           color = "red",size = 7) +
+  annotate("text", x = 3, y = 6500,
+           label = ifelse(t_testResults$p.value[3] < 0.05, "*", ""),
+           color = "red",size = 7)+
+  ggtitle("Violin plot of Body Mass of penguins grouped Sex and Species") +
+  labs(subtitle = " Statistical significance between Sex within Species of p < 0.5 shown by * \n ANOVA showing the statistical significance across Species.") +
+  theme_classic()+
+  theme(plot.subtitle = element_text(
+      size = 10,
+      face = "italic"))
+add_ANOVA <- function(figure) { 
+  grid.newpage()
+  grid.draw(figure)
+  grid.text(label = paste("ANOVA Results"), 
+          x = unit(0.93, "npc"), y = unit(0.24, "npc"), just = "center", gp = gpar(fontsize = 10))
+  grid.text(label = paste("F =", round(anova_F_stat, 2)),
+          x = unit(0.91, "npc"), y = unit(0.19, "npc"), just = "center", gp = gpar(fontsize = 10))
+  grid.text(label = ifelse(anova_p_value < 0.01, "p < 0.01", ""),
+          x = unit(0.91, "npc"), y = unit(0.15, "npc"), just = "center", gp = gpar(fontsize = 10))
+}
+add_ANOVA(ResultsFigure)
+
+# Adding data from anova to Results Figure and saves figure as .png
+agg_png("figures/ResultsFigure.png", 
+        width = 9, height = 5, units = "cm", 
+        res = 600, scaling = 0.46)
+add_ANOVA(ResultsFigure)
+dev.off()
+
+```
+
+A results figure is constructed using the explanatory figure as a skeleton, adding data from the t-tests and anova as well as changing the aesthetics of the figure to make it more readable to an audience.
+
+The results figure shows that body mass is significantly different between all sexes within each species as the error bars displayed do not overlap. This is supported by the statistical tests reported shown by '\*' reporting p \< 0.05. Both of these features of the results figure shows a statisitcally significant difference between body mass of males and females within each species.
+
+The anova F-statistic = 8.76 (which is significant larger than 1) tells us that the difference mean body mass between each species is greater than expected and that sex and species likely have compounding effects on body mass a p \<0.01 tells us that there is a statically significant difference between atlest one mean body mass of each sex between species.
+
+The above code:
+
+-   adds t-test p-value data as '\*' if the p-vlaue is \<0.05 this is done to report the statistical tests done within each species
+
+-   adds a title and short description (as a subtitle) of the figure so that the figure is easier to understand by the audience, even with the added information fro the statistical tests
+
+-   adds the 'classic' theme to the results figure so that it is clearer to read by the audience. The subtitled used as a description is also altered to make it smaller and italic so that the description fits on the figure and so it is clear to distinguish from the title
+
+-   adds the anova data by creating a function. Anova data is added so that the statistical difference between of body mass between species is reported. This is added by making a function because the anova data is added as to the grid the figure is displayed on rather than the actual figure - when saving the figure as a png later the anova data will need to be added again so creating a function avoid needing to rewrite the code. The function is kept on the same .rmd file as it is only called on once and it is not too long so doesn't create to much clutter; I also didn't want to make the anova data optional to view, as it is integral to the analysis I have chose to carry out - hence I chose to keep it on the same .rmd file.
+
+-   saves the results figure as a png to the 'figures' folder previously created so that it can be saved externally and exported if needed.
+
+### Conclusion
+
+Along side the t-test the anova, shows that both sex and species has an effect on body mass for the three species of penguin in the palmerpenguins data set.
