@@ -1,0 +1,269 @@
+---
+title: "Homework Template"
+output:
+  html_document: default
+  pdf_document: default
+date: "2023-10-09"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+*The following is a template .rmd RMarkdown file for you to use for your homework submission.*
+
+*Please Knit your .rmd to a PDF format or HTML and submit that with no identifiers like your name.*
+
+*To create a PDF, first install tinytex and load the package. Then press the Knit arrow and select "Knit to PDF".*
+
+## QUESTION 01: Data Visualisation for Science Communication
+
+*Create a figure using the Palmer Penguin dataset that is correct but badly communicates the data. **Do not make a boxplot**.*
+
+*Use the following references to guide you:*
+
+-   [*https://www.nature.com/articles/533452a*](https://www.nature.com/articles/533452a){.uri}
+-   [*https://elifesciences.org/articles/16800*](https://elifesciences.org/articles/16800){.uri}
+
+*Note: Focus on visual elements rather than writing misleading text on it.*
+
+### a) Provide your figure here:
+
+```{r bad figure code, echo=FALSE}
+
+# There is no need to provide the code for your bad figure, just use echo=FALSE so the code is hidden. Make sure your figure is visible after you knit it. 
+install.packages(c("ggplot2", "palmerpenguins", "janitor", "dplyr"))
+
+library(ggplot2)
+library(palmerpenguins)
+library(janitor)
+library(dplyr)
+
+View(penguins_raw)
+pengSex <- penguins_raw$Sex
+pengMass <- penguins_raw$`Body Mass (g)`
+pengMassSex <- ggplot(penguins_raw, aes(x=pengSex, y=pengMass)) +
+  geom_bar(stat = "identity") +
+  labs(y="pengMass (g)")
+
+
+pengMassSex
+```
+
+### b) Write about how your design choices mislead the reader about the underlying data (200-300 words).
+
+*Include references.*
+
+The figure misleads the reader in the following wayways:
+
+-   One way is through the failure to specify which species of penguin are shown. In this case three different species are shown and it is likely that mass is more species dependent than sex dependent.
+
+-   Mass is shown in grams however this is not an appropriate scale to use as data is given in standard form - this is not easily readable. - Although N/A data is useful to report -- for data shown in figures it is not needed and creates clutter. Additionally the reason for N/A data is unable to be shown in a figure and so creates more obscurity in any results trying to be shown.
+
+-   The lack of reporting on any statistical significance also creates obscurity in the data being shown. It means the figure can only show correlation to an extent.
+
+-   Clear axis labels should also be used - instead the axis are labelled what they are in the code used to generate the plot. Although the labels are computer and human readable, it is still misleading for humans and there is no need for the labels to be computer readable.
+
+-   Overall the plot is unclear in the reporting of data and inconvenient for readers to consume as it the data that is shown is not shown clearly.
+
+## QUESTION 2: Data Pipeline
+
+*Write a data analysis pipeline in your .rmd RMarkdown file. You should be aiming to write a clear explanation of the steps as well as clear code.*
+
+*Your code should include the steps practiced in the lab session:*
+
+#### *Load the data*
+
+#### *Appropriately clean the data*
+
+#### *Create an Exploratory Figure (**not a boxplot**)*
+
+#### *Save the figure*
+
+#### ***New**: Run a statistical test*
+
+#### ***New**: Create a Results Figure*
+
+#### *Save the figure*
+
+*An exploratory figure shows raw data, such as the distribution of the data. A results figure demonstrates the stats method chosen, and includes the results of the stats test.*
+
+*Between your code, communicate clearly what you are doing and why.*
+
+*Your text should include:*
+
+-   *Introduction*
+
+-   *Hypothesis*
+
+-   *Stats Method*
+
+-   *Results*
+
+-   *Discussion*
+
+-   *Conclusion*
+
+*You will be marked on the following:*
+
+### a) Your code for readability and functionality
+
+### b) Your figures for communication
+
+### c) Your text communication of your analysis
+
+*Below is a template you can use.*
+
+------------------------------------------------------------------------
+
+### Introduction
+
+```{r Data Exploration}
+
+# Install Packages 
+install.packages(c("ggplot2", "palmerpenguins", "janitor", "dplyr","ragg","tidyr","svglite"))
+
+#Load Raw Input Data
+library(palmerpenguins)
+penguins_raw
+write.csv(penguins_raw, "data/InputData.csv")
+head(InputData) 
+
+```
+
+### Hypothesis
+
+```{r Explanatory Plot}
+
+
+#Clean Raw Data
+library(dplyr)
+library(tidyr)
+
+CleanData <- InputData %>%
+  select(all_of(c("Species","Body Mass (g)","Sex"))) %>%
+  na.omit(InputData) %>%
+  mutate(Species = replace(Species, Species == "Adelie Penguin (Pygoscelis adeliae)","Adelie penguin (Pygoscelis adeliae)")) %>%
+  separate(col='Species', into=c('SpeciesCommon', 'SpeciesBinomial'), sep='penguin',convert = TRUE) %>% 
+  head(CleanData)
+
+#Plots ExplanatoryFigure  
+library(ggplot2)
+
+ExplanatoryFigure <- ggplot(CleanData, aes(x=SpeciesCommon, y=`Body Mass (g)`, fill=Sex)) +
+  geom_violin() +
+  labs(x = "Species")
+
+
+#Saves ExplanatoryFigure as png
+library(ragg)
+
+agg_png("figures/ExplanatoryFigure.png", 
+        width = 40, 
+        height = 30, 
+        units = "cm", 
+        res = 600, 
+        scaling = 3.6)
+ExplanatoryFigure
+dev.off()
+
+
+```
+
+### Statistical Methods
+
+```{r Statistics}
+
+#T-test to compare signifcance between Sex within each Species 
+t_testResults <- CleanData %>%
+  group_by(SpeciesBinomial) %>%
+  summarise(ResultSummary = list(t.test(`Body Mass (g)` ~ Sex))) %>%
+  mutate(p.value = c(t_testResults$ResultSummary[[1]]$p.value, t_testResults$ResultSummary[[2]]$p.value, t_testResults$ResultSummary[[3]]$p.value))
+
+
+model <- lm(`Body Mass (g)` ~ Sex * SpeciesBinomial, data = CleanData)
+anova_table <- anova(model)
+anova_table
+anova_p_value <- anova_table[["Pr(>F)"]][3]
+anova_F_stat <-  anova_table[["F value"]][3] 
+
+```
+
+### Results & Discussion
+
+```{r Plotting Results}
+
+# Plots reuslts figure adding data from t-test aswell as making the explanatory figure readable for an audience. 
+library(grid)
+
+ResultsFigure <- ExplanatoryFigure +
+  stat_summary(fun = mean, geom = "point", shape = 20, size = 3) +
+  stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.1) +
+  annotate("text", x = 1, y = 6500,
+           label = ifelse(t_testResults$p.value[1] < 0.05, "*", ""),
+           color = "red",size = 7) +
+  annotate("text", x = 2, y = 6500,
+           label = ifelse(t_testResults$p.value[2] < 0.05, "*", ""),
+           color = "red",size = 7) +
+  annotate("text", x = 3, y = 6500,
+           label = ifelse(t_testResults$p.value[3] < 0.05, "*", ""),
+           color = "red",size = 7)+
+  ggtitle("Violin plot of Body Mass of penguins grouped Sex and Species") +
+  labs(subtitle = " Statistical significance between Sex within Species of p < 0.5 shown by * \n ANOVA showing the statistical significance across Species.") +
+  theme_classic()+
+  theme(plot.subtitle = element_text(
+      size = 10,
+      face = "italic"))
+
+
+# Adding data from anova to Results Figure and saves figure as .png
+agg_png("figures/ResultsFigure.png", 
+        width = 9, height = 5, units = "cm", 
+        res = 600, scaling = 0.46)
+grid.newpage()
+grid.draw(ResultsFigure)
+grid.text(label = paste("ANOVA Results"), 
+          x = unit(0.93, "npc"), y = unit(0.24, "npc"), just = "center", gp = gpar(fontsize = 10))
+grid.text(label = paste("F =", round(anova_F_stat, 2)),
+          x = unit(0.91, "npc"), y = unit(0.19, "npc"), just = "center", gp = gpar(fontsize = 10))
+grid.text(label = ifelse(anova_p_value < 0.01, "p < 0.01", ""),
+          x = unit(0.91, "npc"), y = unit(0.15, "npc"), just = "center", gp = gpar(fontsize = 10))
+dev.off()
+
+```
+
+### Conclusion
+
+------------------------------------------------------------------------
+
+## QUESTION 3: Open Science
+
+### a) GitHub
+
+*Upload your RProject you created for **Question 2** and any files and subfolders used to GitHub. Do not include any identifiers such as your name. Make sure your GitHub repo is public.*
+
+*GitHub link:*
+
+*You will be marked on your repo organisation and readability.*
+
+### b) Share your repo with a partner, download, and try to run their data pipeline.
+
+*Partner's GitHub link:*
+
+*You **must** provide this so I can verify there is no plagiarism between you and your partner.*
+
+### c) Reflect on your experience running their code. (300-500 words)
+
+-   *What elements of your partner's code helped you to understand their data pipeline?*
+
+-   *Did it run? Did you need to fix anything?*
+
+-   *What suggestions would you make for improving their code to make it more understandable or reproducible, and why?*
+
+-   *If you needed to alter your partner's figure using their code, do you think that would be easy or difficult, and why?*
+
+### d) Reflect on your own code based on your experience with your partner's code and their review of yours. (300-500 words)
+
+-   *What improvements did they suggest, and do you agree?*
+
+-   *What did you learn about writing code for other people?*
