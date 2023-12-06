@@ -1,0 +1,9 @@
+#paste into console to install single packages required reproducibilitySubmission.rmd
+install.packages("ggplot2")
+install.packages("palmerpenguins")
+install.packages("dplyr")
+install.packages("ragg")
+install.packages("tidyr")
+
+#paste into console to install all packages required reproducibilitySubmission.rmd
+#install.packages(c("ggplot2", "palmerpenguins", "dplyr","ragg","tidyr"))
